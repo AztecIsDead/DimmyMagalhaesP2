@@ -4,12 +4,23 @@ public class LogEntry {
 
     private long timestamp;
     private String userId;
-    private int action;
+    private String sessionId;
+    private String actionType;
+    private String targetResource;
+    private int severityLevel;
+    private long bytesTransferred;
 
-    public LogEntry(long timestamp, String userId, int action) {
+    public LogEntry(long timestamp, String userId, String sessionId,
+                    String actionType, String targetResource,
+                    int severityLevel, long bytesTransferred) {
+
         this.timestamp = timestamp;
         this.userId = userId;
-        this.action = action;
+        this.sessionId = sessionId;
+        this.actionType = actionType;
+        this.targetResource = targetResource;
+        this.severityLevel = severityLevel;
+        this.bytesTransferred = bytesTransferred;
     }
 
     public long getTimestamp() {
@@ -20,8 +31,24 @@ public class LogEntry {
         return userId;
     }
 
-    public int getAction() {
-        return action;
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public String getActionType() {
+        return actionType;
+    }
+
+    public String getTargetResource() {
+        return targetResource;
+    }
+
+    public int getSeverityLevel() {
+        return severityLevel;
+    }
+
+    public long getBytesTransferred() {
+        return bytesTransferred;
     }
 
     @Override
@@ -29,7 +56,11 @@ public class LogEntry {
         return "LogEntry{" +
                 "timestamp=" + timestamp +
                 ", userId='" + userId + '\'' +
-                ", action=" + action +
+                ", sessionId='" + sessionId + '\'' +
+                ", actionType='" + actionType + '\'' +
+                ", targetResource='" + targetResource + '\'' +
+                ", severityLevel=" + severityLevel +
+                ", bytesTransferred=" + bytesTransferred +
                 '}';
     }
 }

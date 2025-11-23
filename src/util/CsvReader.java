@@ -17,11 +17,13 @@ public class CsvReader {
         String line;
 
         while ((line = br.readLine()) != null) {
+
             if (line.trim().isEmpty()) continue;
 
             String[] parts = line.split(",");
 
-            if (parts.length != 3) {
+            // Agora espera 7 campos
+            if (parts.length != 7) {
                 System.err.println("linha inválida: " + line);
                 continue;
             }
@@ -29,9 +31,22 @@ public class CsvReader {
             try {
                 long timestamp = Long.parseLong(parts[0]);
                 String userId = parts[1];
-                int action = Integer.parseInt(parts[2]);
+                String sessionId = parts[2];
+                String actionType = parts[3];
+                String targetResource = parts[4];
+                int severityLevel = Integer.parseInt(parts[5]);
+                long bytesTransferred = Long.parseLong(parts[6]);
 
-                LogEntry entry = new LogEntry(timestamp, userId, action);
+                LogEntry entry = new LogEntry(
+                        timestamp,
+                        userId,
+                        sessionId,
+                        actionType,
+                        targetResource,
+                        severityLevel,
+                        bytesTransferred
+                );
+
                 list.add(entry);
 
             } catch (NumberFormatException e) {
