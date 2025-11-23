@@ -35,7 +35,7 @@ public class DesafioService implements AnaliseForenseAvancada {
                 try {
                     acao = Acao.valueOf(actionText);
                 } catch (Exception e) {
-                    continue; // ação inválida
+                    continue;
                 }
 
                 Deque<String> pilha = pilhas.computeIfAbsent(userId, k -> new ArrayDeque<>(4));
@@ -56,13 +56,10 @@ public class DesafioService implements AnaliseForenseAvancada {
                         else if (!Objects.equals(pilha.peek(), sessionId)){
                             sessoesInvalidas.add(sessionId);
                         }
-                        else{
+                        else {
                             pilha.pop();
-                        }
-                    }
-                }
-            }
-        }
+                        }}}
+            }}
         pilhas.values().forEach(sessoesInvalidas::addAll);
         return sessoesInvalidas;
     }
@@ -89,11 +86,7 @@ public class DesafioService implements AnaliseForenseAvancada {
                 if (logSessionId.equals(sessionId)) {
                     String actionType = linha.substring(p2 + 1);
                     fila.add(actionType);
-                }
-            }
-        }
-
-        // Transformar a fila em lista preservando ordem
+                }}}
         List<String> resultado = new ArrayList<>(fila.size());
         while (!fila.isEmpty()) {
             resultado.add(fila.poll());
@@ -109,11 +102,69 @@ public class DesafioService implements AnaliseForenseAvancada {
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
-        return Map.of();
+        Map<Long, Long> picos = new HashMap<>();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
+            String linha;
+            while ((linha = reader.readLine()) != null) {
+                String[] partes = linha.split(",");
+                if (partes.length != 4) continue;
+                try {
+                    long timestamp = Long.parseLong(partes[0]);
+                    long tamanho = Long.parseLong(partes[3]);
+
+                    picos.merge(timestamp, tamanho, Long::sum);
+
+                } catch (NumberFormatException e) {
+                }}}
+
+        return picos;
     }
 
-    @Override
-    public Optional<List<String>> rastrearContaminacao(String caminhoArquivo, String recursoInicial, String recursoAlvo) throws IOException {
+    public Optional<List<String>> rastrearContaminacao(
+            String caminhoArquivo,
+            String recursoInicial,
+            String recursoAlvo
+    ) throws IOException {
+        Map<String, Set<String>> grafo = new HashMap<>();
+        Map<String, String> ultimoRecursoPorSessao = new HashMap<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
+            String linha;
+            while ((linha = reader.readLine()) != null) {
+                String[] partes = linha.split(",");
+                if (partes.length != 4) continue;
+
+                String sessionOrUser = partes[1];
+                String recurso = partes[2];
+
+                String anterior = ultimoRecursoPorSessao.put(sessionOrUser, recurso);
+
+                if (anterior != null) {
+                    grafo.computeIfAbsent(anterior, k -> new HashSet<>()).add(recurso);
+                }}}
+        Queue<List<String>> fila = new ArrayDeque<>();
+        Set<String> visitados = new HashSet<>();
+
+        fila.add(List.of(recursoInicial));
+        visitados.add(recursoInicial);
+
+        while (!fila.isEmpty()) {
+            List<String> caminho = fila.poll();
+            String atual = caminho.get(caminho.size() - 1);
+
+            if (Objects.equals(atual, recursoAlvo)) {
+                return Optional.of(caminho);
+            }
+
+            for (String vizinho : grafo.getOrDefault(atual, Set.of())) {
+                if (!visitados.contains(vizinho)) {
+                    visitados.add(vizinho);
+
+                    List<String> novo = new ArrayList<>(caminho);
+                    novo.add(vizinho);
+
+                    fila.add(novo);
+                }}}
+
         return Optional.empty();
-    }
-}
+    }}
