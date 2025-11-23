@@ -1,5 +1,5 @@
 package service;
-
+import model.LogEntry;
 import br.edu.icev.aed.forense.Alerta;
 import br.edu.icev.aed.forense.AnaliseForenseAvancada;
 
@@ -25,7 +25,7 @@ public class DesafioService implements AnaliseForenseAvancada {
                 int p1 = linha.indexOf(',');
                 int p2 = linha.indexOf(',', p1 + 1);
 
-                if (p1 == -1 || p2 == -1) continue; // linha inválida
+                if (p1 == -1 || p2 == -1) continue;
 
                 String userId    = linha.substring(0, p1);
                 String sessionId = linha.substring(p1 + 1, p2);
@@ -35,7 +35,7 @@ public class DesafioService implements AnaliseForenseAvancada {
                 try {
                     acao = Acao.valueOf(actionText);
                 } catch (Exception e) {
-                    continue; // ação inválida
+                    continue;
                 }
 
                 Deque<String> pilha = pilhas.computeIfAbsent(userId, k -> new ArrayDeque<>(4));
@@ -48,19 +48,15 @@ public class DesafioService implements AnaliseForenseAvancada {
                     }
 
                     case LOGOUT -> {
-                        if (pilha.isEmpty()){
+                        if (pilha.isEmpty()) {
                             sessoesInvalidas.add(sessionId);
-                        }
-                        else if (!Objects.equals(pilha.peek(), sessionId)){
+                        } else if (!Objects.equals(pilha.peek(), sessionId)) {
                             sessoesInvalidas.add(sessionId);
-                        }
-                        else {
+                        } else {
                             pilha.pop();
                         }
                     }
-                }
-            }
-        }
+                }}}
         pilhas.values().forEach(sessoesInvalidas::addAll);
         return sessoesInvalidas;
     }
@@ -77,11 +73,68 @@ public class DesafioService implements AnaliseForenseAvancada {
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
-        return Map.of();
+        Map<Long, Long> picos = new HashMap<>();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
+            String linha;
+            while ((linha = reader.readLine()) != null) {
+                String[] partes = linha.split(",");
+                if (partes.length != 4) continue;
+                try {
+                    long timestamp = Long.parseLong(partes[0]);
+                    long tamanho = Long.parseLong(partes[3]);
+                    picos.merge(timestamp, tamanho, Long::sum);
+                } catch (NumberFormatException e) {
+                }}}
+
+        return picos;
     }
 
-    @Override
-    public Optional<List<String>> rastrearContaminacao(String caminhoArquivo, String recursoInicial, String recursoAlvo) throws IOException {
+
+    public Optional<List<String>> rastrearContaminacao(
+            String caminhoArquivo,
+            String recursoInicial,
+            String recursoAlvo
+    ) throws IOException {
+        Map<String, Set<String>> grafo = new HashMap<>();
+        Map<String, String> ultimoRecursoPorSessao = new HashMap<>();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
+            String linha;
+            while ((linha = reader.readLine()) != null) {
+                String[] partes = linha.split(",");
+                if (partes.length != 4) continue;
+                String sessionOrUser = partes[1]; // userId funciona como agrupador no ZIP
+                String recurso = partes[2];
+                String anterior = ultimoRecursoPorSessao.put(sessionOrUser, recurso);
+                if (anterior != null) {
+                    grafo.computeIfAbsent(anterior, k -> new HashSet<>()).add(recurso);
+                }}}
+        Queue<List<String>> fila = new ArrayDeque<>();
+        Set<String> visitados = new HashSet<>();
+
+        fila.add(List.of(recursoInicial));
+        visitados.add(recursoInicial);
+
+        while (!fila.isEmpty()) {
+            List<String> caminho = fila.poll();
+            String atual = caminho.get(caminho.size() - 1);
+
+            if (Objects.equals(atual, recursoAlvo)) {
+                return Optional.of(caminho);
+            }
+
+            for (String vizinho : grafo.getOrDefault(atual, Set.of())) {
+                if (!visitados.contains(vizinho)) {
+                    visitados.add(vizinho);
+
+                    List<String> novo = new ArrayList<>(caminho);
+                    novo.add(vizinho);
+
+                    fila.add(novo);
+                }
+            }
+        }
         return Optional.empty();
-    }
-}
+    }}
+
