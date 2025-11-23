@@ -21,7 +21,7 @@ public class CsvReader {
             if (line.trim().isEmpty()) continue;
 
             String[] parts = line.split(",");
-            //só testando????
+
             if (parts.length != 7) {
                 System.err.println("linha inválida: " + line);
                 continue;
