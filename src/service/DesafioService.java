@@ -43,7 +43,9 @@ public class DesafioService implements AnaliseForenseAvancada {
                 switch (acao) {
 
                     case LOGIN -> {
-                        if (!pilha.isEmpty()) sessoesInvalidas.add(sessionId);
+                        if (!pilha.isEmpty()){
+                            sessoesInvalidas.add(sessionId);
+                        }
                         pilha.push(sessionId);
                     }
 
@@ -54,7 +56,7 @@ public class DesafioService implements AnaliseForenseAvancada {
                         else if (!Objects.equals(pilha.peek(), sessionId)){
                             sessoesInvalidas.add(sessionId);
                         }
-                        else {
+                        else{
                             pilha.pop();
                         }
                     }
@@ -67,7 +69,37 @@ public class DesafioService implements AnaliseForenseAvancada {
 
     @Override
     public List<String> reconstruirLinhaTempo(String caminhoArquivo, String sessionId) throws IOException {
-        return List.of();
+        Queue<String> fila = new ArrayDeque<>();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
+
+            String linha;
+
+            while ((linha = reader.readLine()) != null) {
+
+                int p1 = linha.indexOf(',');
+                int p2 = (p1 == -1 ? -1 : linha.indexOf(',', p1 + 1));
+
+                if (p1 == -1 || p2 == -1) {
+                    continue;
+                }
+
+                String logSessionId = linha.substring(p1 + 1, p2);
+
+                if (logSessionId.equals(sessionId)) {
+                    String actionType = linha.substring(p2 + 1);
+                    fila.add(actionType);
+                }
+            }
+        }
+
+        // Transformar a fila em lista preservando ordem
+        List<String> resultado = new ArrayList<>(fila.size());
+        while (!fila.isEmpty()) {
+            resultado.add(fila.poll());
+        }
+
+        return resultado;
     }
 
     @Override
