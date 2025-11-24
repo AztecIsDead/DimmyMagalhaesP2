@@ -100,17 +100,66 @@ public class DesafioService implements AnaliseForenseAvancada {
 
     @Override
     public List<Alerta> priorizarAlertas(String caminhoArquivo, int n) throws IOException {
-        return List.of();
+        // Caso trivial
+        if (n <= 0) return Collections.emptyList();
+
+        // PriorityQueue em ordem decrescente de severidade
+        PriorityQueue<Alerta> filaPrioridade = new PriorityQueue<>(
+                (a1, a2) -> Integer.compare(a2.getSeverityLevel(), a1.getSeverityLevel())
+        );
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
+
+            String linha;
+
+            while ((linha = reader.readLine()) != null) {
+
+                // timestamp,userId,sessionId,actionType,targetResource,severityLevel,bytesTransferred
+
+                int p1 = linha.indexOf(',');
+                int p2 = linha.indexOf(',', p1 + 1);
+                int p3 = linha.indexOf(',', p2 + 1);
+                int p4 = linha.indexOf(',', p3 + 1);
+                int p5 = linha.indexOf(',', p4 + 1);
+                int p6 = linha.indexOf(',', p5 + 1);
+
+                if (p1 < 0 || p2 < 0 || p3 < 0 || p4 < 0 || p5 < 0 || p6 < 0)
+                    continue; // linha inválida
+
+                long timestamp = Long.parseLong(linha.substring(0, p1));
+                String userId = linha.substring(p1 + 1, p2);
+                String sessionId = linha.substring(p2 + 1, p3);
+                String actionType = linha.substring(p3 + 1, p4);
+                String targetResource = linha.substring(p4 + 1, p5);
+                int severityLevel = Integer.parseInt(linha.substring(p5 + 1, p6));
+                long bytesTransferred = Long.parseLong(linha.substring(p6 + 1));
+
+                Alerta alerta = new Alerta(timestamp, userId, sessionId, actionType, targetResource, severityLevel,
+                        bytesTransferred);
+
+                // Adicionar na priority queue
+                filaPrioridade.add(alerta);
+            }
+        }
+
+        // Extrair até N elementos
+        List<Alerta> resultado = new ArrayList<>(n);
+
+        for (int i = 0; i < n && !filaPrioridade.isEmpty(); i++) {
+            resultado.add(filaPrioridade.poll());
+        }
+
+        return resultado;
     }
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
 
         List<long[]> eventos = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(caminhoArquivo))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
             String linha;
 
-            while ((linha = br.readLine()) != null) {
+            while ((linha = reader.readLine()) != null) {
                 String[] p = linha.split(",");
 
                 if (p.length != 7) continue;
@@ -161,10 +210,10 @@ public class DesafioService implements AnaliseForenseAvancada {
 
         Map<String, List<String[]>> porSessao = new HashMap<>();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(caminhoArquivo))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
             String linha;
 
-            while ((linha = br.readLine()) != null) {
+            while ((linha = reader.readLine()) != null) {
 
                 String[] p = linha.split(",");
                 if (p.length != 7) continue;
