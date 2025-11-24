@@ -34,8 +34,7 @@ public class DesafioService implements AnaliseForenseAvancada {
                 Acao acao;
                 try {
                     acao = Acao.valueOf(actionText);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     continue;
                 }
 
@@ -169,16 +168,15 @@ public class DesafioService implements AnaliseForenseAvancada {
                 try {
                     timestamp = Long.parseLong(linha.substring(0, idx1));
                 } catch (NumberFormatException e) {
-                    continue; // linha inválida
+                    continue; //linha inválida
                 }
 
-                // avançando 5 vírgulas para chegar no campo 'bytesTransferred' manualmente (otimização)
                 int start = idx1 + 1;
                 int virgulasRestantes = 5;
 
                 while (virgulasRestantes > 0) {
                     start = linha.indexOf(',', start) + 1;
-                    if (start == 0) { // não achou a vírgula
+                    if (start == 0) {
                         start = -1;
                         break;
                     }
@@ -187,7 +185,6 @@ public class DesafioService implements AnaliseForenseAvancada {
 
                 if (start == -1) continue;
 
-                // achar vírgula que fecha o campo 6
                 int end = linha.indexOf(',', start);
                 if (end == -1) end = linha.length();
 
@@ -195,7 +192,7 @@ public class DesafioService implements AnaliseForenseAvancada {
                 try {
                     bytes = Long.parseLong(linha.substring(start, end));
                 } catch (NumberFormatException e) {
-                    continue; // bytes inválidos
+                    continue; //bytes inválidos
                 }
 
                 if (bytes > 0) {
@@ -210,7 +207,7 @@ public class DesafioService implements AnaliseForenseAvancada {
         Map<Long, Long> encontrados = new HashMap<>(size / 2);
         ArrayDeque<long[]> stack = new ArrayDeque<>();
 
-        // processa em ordem reversa (Next Greater Element)
+        //processa em ordem reversa (Next Greater Element)
         for (int i = size - 1; i >= 0; i--) {
 
             long ts = eventos.get(i)[0];
@@ -231,107 +228,90 @@ public class DesafioService implements AnaliseForenseAvancada {
     }
 
     @Override
-    public Optional<List<String>> rastrearContaminacao(String caminhoArquivo, String recursoInicial, String recursoAlvo
+    public Optional<List<String>> rastrearContaminacao(
+            String caminhoArquivo,
+            String recursoInicial,
+            String recursoAlvo
     ) throws IOException {
 
-        if (recursoInicial == null || recursoAlvo == null || recursoInicial.isEmpty() || recursoAlvo.isEmpty()) {
+        if (recursoInicial == null || recursoAlvo == null ||
+                recursoInicial.isEmpty() || recursoAlvo.isEmpty()) {
             return Optional.empty();
         }
-
+        //grafo
         Map<String, List<String>> grafo = new HashMap<>();
+        Map<String, List<String[]>> porSessao = new HashMap<>();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
 
             String linha;
-            String lastSession = null;
-            String lastResource = null;
 
-            // Esperado: TIMESTAMP,SESSION_ID,ACTION_TYPE,TARGET_RESOURCE
             while ((linha = reader.readLine()) != null) {
+                String[] p = linha.split(",");
+                if (p.length != 7) continue;
+                String sessionId = p[2];
+                String target     = p[4];
+                if (target.isEmpty()) continue;
 
-                int i1 = linha.indexOf(',');
-                if (i1 < 0) continue;
-
-                int i2 = linha.indexOf(',', i1 + 1);
-                if (i2 < 0) continue;
-
-                int i3 = linha.indexOf(',', i2 + 1);
-                if (i3 < 0) continue;
-
-                String session = linha.substring(i1 + 1, i2);
-                String resource = linha.substring(i3 + 1);
-
-                if (resource.isEmpty()) continue;
-
-                if (!session.equals(lastSession)) {
-                    lastSession = session;
-                    lastResource = null;
-                }
-
-                if (lastResource != null) {
-
-                    grafo.computeIfAbsent(lastResource, k -> new ArrayList<>())
-                            .add(resource);
-                }
-
-                lastResource = resource;
+                porSessao.computeIfAbsent(sessionId, k -> new ArrayList<>()).add(p);
             }
         }
 
-        // Caso especial: inicial = alvo e o recurso existe no grafo
-        if (recursoInicial.equals(recursoAlvo)) {
-            if (grafo.containsKey(recursoInicial) || grafo.values().stream().anyMatch(l -> l.contains(recursoInicial))) {
-                return Optional.of(List.of(recursoInicial));
-            }
-            return Optional.empty();
-        }
+        //grafo ordem de acesso
+        for (List<String[]> logsSessao : porSessao.values()) {
 
-        // BFS
+            //ordenar por timestamp
+            logsSessao.sort(Comparator.comparingLong(a -> Long.parseLong(a[0])));
+
+            for (int i = 0; i < logsSessao.size() - 1; i++) {
+
+                String origem  = logsSessao.get(i)[4];
+                String destino = logsSessao.get(i + 1)[4];
+
+                List<String> adj = grafo.computeIfAbsent(origem, k -> new ArrayList<>());
+
+                //evitar duplicadas
+                if (!adj.contains(destino)) {
+                    adj.add(destino);
+                }}}
+
+        //BFS
         Queue<String> fila = new ArrayDeque<>();
         Map<String, String> predecessor = new HashMap<>();
         Set<String> visitado = new HashSet<>();
-
         fila.add(recursoInicial);
         visitado.add(recursoInicial);
+        predecessor.put(recursoInicial, null);
 
-        boolean encontrado = false;
-
+        boolean achou = false;
         while (!fila.isEmpty()) {
             String atual = fila.poll();
+            if (atual.equals(recursoAlvo)) {
+                achou = true;
+                break;
+            }
 
-            List<String> adj = grafo.get(atual);
-            if (adj == null) continue;
-
-            for (String prox : adj) {
-                if (!visitado.contains(prox)) {
-
-                    visitado.add(prox);
-                    predecessor.put(prox, atual);
-                    fila.add(prox);
-
-                    if (prox.equals(recursoAlvo)) {
-                        encontrado = true;
+            for (String viz : grafo.getOrDefault(atual, List.of())) {
+                if (!visitado.contains(viz)) {
+                    visitado.add(viz);
+                    predecessor.put(viz, atual);
+                    fila.add(viz);
+                    if (viz.equals(recursoAlvo)) {
+                        achou = true;
                         break;
                     }
-                }
-            }
-            if (encontrado) break;
-        }
+                }}
+            if (achou) break;}
 
-        if (!encontrado) {
+        if (!achou) {
             return Optional.empty();
         }
-
-        // Reconstruir caminho
         List<String> caminho = new ArrayList<>();
         String atual = recursoAlvo;
-
         while (atual != null) {
             caminho.add(atual);
             atual = predecessor.get(atual);
         }
-
         Collections.reverse(caminho);
         return Optional.of(caminho);
-    }
-}
+    }}
