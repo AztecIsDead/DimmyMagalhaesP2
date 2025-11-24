@@ -90,12 +90,12 @@ public class DesafioService implements AnaliseForenseAvancada {
                 }
             }
         }
-        List<String> resultado = new ArrayList<>(fila.size());
+        List<String> linhaDoTempo = new ArrayList<>(fila.size());
         while (!fila.isEmpty()) {
-            resultado.add(fila.poll());
+            linhaDoTempo.add(fila.poll());
         }
 
-        return resultado;
+        return linhaDoTempo;
     }
 
     @Override
@@ -143,35 +143,59 @@ public class DesafioService implements AnaliseForenseAvancada {
         }
 
         // Extrair até N elementos
-        List<Alerta> resultado = new ArrayList<>(n);
+        List<Alerta> alertas = new ArrayList<>(n);
 
         for (int i = 0; i < n && !filaPrioridade.isEmpty(); i++) {
-            resultado.add(filaPrioridade.poll());
+            alertas.add(filaPrioridade.poll());
         }
 
-        return resultado;
+        return alertas;
     }
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
-
         List<long[]> eventos = new ArrayList<>();
+
         try (BufferedReader reader = new BufferedReader(new FileReader(caminhoArquivo))) {
             String linha;
 
             while ((linha = reader.readLine()) != null) {
-                String[] p = linha.split(",");
 
-                if (p.length != 7) continue;
+                int idx1 = linha.indexOf(',');
+                if (idx1 == -1) continue;
 
                 long timestamp;
-                long bytes;
-
                 try {
-                    timestamp = Long.parseLong(p[0]);
-                    bytes = Long.parseLong(p[6]);
+                    timestamp = Long.parseLong(linha.substring(0, idx1));
                 } catch (NumberFormatException e) {
-                    continue;
+                    continue; // linha inválida
+                }
+
+                // Agora precisamos do campo 7 (bytesTransferred)
+                // Vamos avançar 5 vírgulas adicionais até chegar nele.
+                int start = idx1 + 1;
+                int virgulasRestantes = 5;
+
+                while (virgulasRestantes > 0) {
+                    start = linha.indexOf(',', start) + 1;
+                    if (start == 0) { // não achou a vírgula
+                        start = -1;
+                        break;
+                    }
+                    virgulasRestantes--;
+                }
+
+                if (start == -1) continue;
+
+                // Agora achar a próxima vírgula que fecha o campo 6
+                int end = linha.indexOf(',', start);
+                if (end == -1) end = linha.length();
+
+                long bytes;
+                try {
+                    bytes = Long.parseLong(linha.substring(start, end));
+                } catch (NumberFormatException e) {
+                    continue; // bytes inválidos
                 }
 
                 if (bytes > 0) {
@@ -180,23 +204,30 @@ public class DesafioService implements AnaliseForenseAvancada {
             }
         }
 
-        Map<Long, Long> resultado = new HashMap<>();
-        Deque<long[]> stack = new ArrayDeque<>();
+        int size = eventos.size();
+        if (size == 0) return Collections.emptyMap();
 
-        for (int i = eventos.size() - 1; i >= 0; i--) {
+        Map<Long, Long> encontrados = new HashMap<>(size / 2);
+        ArrayDeque<long[]> stack = new ArrayDeque<>();
+
+        // Processa em ordem reversa (Next Greater Element)
+        for (int i = size - 1; i >= 0; i--) {
+
             long ts = eventos.get(i)[0];
             long bytes = eventos.get(i)[1];
 
             while (!stack.isEmpty() && stack.peek()[1] <= bytes) {
                 stack.pop();
             }
+
             if (!stack.isEmpty()) {
-                resultado.put(ts, stack.peek()[0]);
+                encontrados.put(ts, stack.peek()[0]);
             }
+
             stack.push(new long[]{ts, bytes});
         }
 
-        return resultado;
+        return encontrados;
     }
 
     @Override
